@@ -147,8 +147,8 @@
                     Escaneamos la Dark Web y bases de datos filtradas en tiempo real para proteger tu identidad digital. No esperes a ser una víctima.
                 </p>
                 <div class="flex flex-col sm:flex-row gap-xs bg-surface-container-high p-xs rounded-xl border border-outline-variant max-w-md shadow-2xl">
-                    <input class="bg-transparent border-none focus:ring-0 text-on-surface px-4 py-3 flex-grow font-body-md" placeholder="Introduce tu email" type="email"/>
-                    <button class="bg-primary-container text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-500 transition-all active:scale-95">
+                    <input class="bg-transparent border-none focus:ring-0 text-on-surface px-4 py-3 flex-grow font-body-md" placeholder="Introduce tu email" type="email" id="emailInput"/>
+                    <button class="bg-primary-container text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-500 transition-all active:scale-95" onclick="verificarEmail()">
                         Verificar ahora
                     </button>
                 </div>
@@ -473,6 +473,41 @@
         </div>
     </div>
 </footer>
+
+<script>
+async function verificarEmail() {
+    const email = document.getElementById('emailInput').value;
+    const resDiv = document.getElementById('resultadoBusqueda');
+    
+    if (!email) return;
+
+    // Estado de carga
+    resDiv.classList.remove('hidden');
+    resDiv.className = "mt-4 p-4 rounded-lg border bg-slate-800 text-slate-300 flex items-center gap-3";
+    resDiv.innerHTML = `<span class="material-symbols-outlined animate-spin">sync</span> Analizando bases de datos...`;
+
+    try {
+        const response = await fetch('http://localhost:8000/check-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email })
+        });
+        const result = await response.json();
+
+        if (result.status === "pwned") {
+            resDiv.className = "mt-4 p-4 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 flex items-center gap-3";
+            resDiv.innerHTML = `<span class="material-symbols-outlined">warning</span> ${result.message}`;
+        } else {
+            resDiv.className = "mt-4 p-4 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 flex items-center gap-3";
+            resDiv.innerHTML = `<span class="material-symbols-outlined">check_circle</span> ${result.message}`;
+        }
+    } catch (e) {
+        resDiv.className = "mt-4 p-4 rounded-lg border border-amber-500/50 bg-amber-500/10 text-amber-400 flex items-center gap-3";
+        resDiv.innerHTML = `<span class="material-symbols-outlined">error</span> Error al conectar con el servidor local.`;
+    }
+}
+</script>
+
 
 </body>
 </html>
