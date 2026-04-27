@@ -147,8 +147,8 @@
                     Escaneamos la Dark Web y bases de datos filtradas en tiempo real para proteger tu identidad digital. No esperes a ser una víctima.
                 </p>
                 <div class="flex flex-col sm:flex-row gap-xs bg-surface-container-high p-xs rounded-xl border border-outline-variant max-w-md shadow-2xl">
-                    <input class="bg-transparent border-none focus:ring-0 text-on-surface px-4 py-3 flex-grow font-body-md" placeholder="Introduce tu email" type="email" id="emailInput"/>
-                    <button class="bg-primary-container text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-500 transition-all active:scale-95" onclick="verificarEmail()">
+                    <input class="bg-transparent border-none focus:ring-0 text-on-surface px-4 py-3 flex-grow font-body-md" placeholder="Introduce tu email" type="email" id="email-input"/>
+                    <button class="bg-primary-container text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-500 transition-all active:scale-95" id="check-button">
                         Verificar ahora
                     </button>
                 </div>
@@ -463,7 +463,7 @@
                 <span class="material-symbols-outlined text-indigo-400" data-icon="shield">shield</span>
                 CyberShield AI
             </div>
-            <p class="font-sans text-xs text-slate-500 Inter max-w-xs text-center md:text-left">© 2024 CyberShield AI. Frictionless Safety Guaranteed. Protegiendo identidades digitales con IA avanzada.</p>
+            <p class="font-sans text-xs text-slate-500 Inter max-w-xs text-center md:text-left"> 2024 CyberShield AI. Frictionless Safety Guaranteed. Protegiendo identidades digitales con IA avanzada.</p>
         </div>
         <div class="flex gap-8">
             <a class="font-sans text-xs text-slate-500 hover:text-slate-300 transition-colors" href="#">Documentation</a>
@@ -474,40 +474,138 @@
     </div>
 </footer>
 
+<!-- Script del cliente API -->
+<script src="frontend/js/api-client.js"></script>
+
 <script>
-async function verificarEmail() {
-    const email = document.getElementById('emailInput').value;
-    const resDiv = document.getElementById('resultadoBusqueda');
-    
-    if (!email) return;
-
-    // Estado de carga
-    resDiv.classList.remove('hidden');
-    resDiv.className = "mt-4 p-4 rounded-lg border bg-slate-800 text-slate-300 flex items-center gap-3";
-    resDiv.innerHTML = `<span class="material-symbols-outlined animate-spin">sync</span> Analizando bases de datos...`;
-
-    try {
-        const response = await fetch('http://localhost:8000/check-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email })
-        });
-        const result = await response.json();
-
-        if (result.status === "pwned") {
-            resDiv.className = "mt-4 p-4 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 flex items-center gap-3";
-            resDiv.innerHTML = `<span class="material-symbols-outlined">warning</span> ${result.message}`;
-        } else {
-            resDiv.className = "mt-4 p-4 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 flex items-center gap-3";
-            resDiv.innerHTML = `<span class="material-symbols-outlined">check_circle</span> ${result.message}`;
+    // Función para verificar email con la API
+    async function checkEmail() {
+        const emailInput = document.getElementById('email-input');
+        const checkButton = document.getElementById('check-button');
+        const resultsDiv = document.getElementById('results');
+        const email = emailInput.value.trim();
+        
+        // Validar email
+        if (!window.ui.validateEmail(email)) {
+            window.ui.showNotification('Por favor, ingresa un email válido', 'error');
+            return;
         }
-    } catch (e) {
-        resDiv.className = "mt-4 p-4 rounded-lg border border-amber-500/50 bg-amber-500/10 text-amber-400 flex items-center gap-3";
-        resDiv.innerHTML = `<span class="material-symbols-outlined">error</span> Error al conectar con el servidor local.`;
+        
+        // Mostrar estado de carga
+        window.ui.setLoading('check-button', true);
+        
+        try {
+            // Verificar brechas del email
+            const response = await window.api.checkBreachedAccount(email);
+            
+            // Mostrar resultados
+            displayResults(response);
+            
+        } catch (error) {
+            console.error('Error:', error);
+            window.ui.showNotification(`Error: ${error.message}`, 'error');
+            
+            // Mostrar mensaje de error
+            resultsDiv.innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <div class="flex items-center">
+                        <svg class="w-8 h-8 text-red-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                        </svg>
+                        <div>
+                            <h3 class="text-lg font-semibold text-red-800">Error</h3>
+                            <p class="text-red-600">${error.message}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } finally {
+            window.ui.setLoading('check-button', false);
+        }
     }
-}
+    
+    // Función para mostrar los resultados
+    function displayResults(data) {
+        const resultsDiv = document.getElementById('results');
+        const riskInfo = window.ui.formatRiskScore(data.risk_score);
+        
+        resultsDiv.innerHTML = `
+            <!-- Score de Riesgo -->
+            <div class="bg-slate-800/50 backdrop-blur-xl rounded-xl p-6 mb-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-white">Score de Riesgo</h3>
+                    <span class="px-3 py-1 rounded-full text-sm font-medium ${riskInfo.class} text-white">
+                        ${riskInfo.text}
+                    </span>
+                </div>
+                <div class="relative">
+                    <div class="w-full bg-slate-700 rounded-full h-4">
+                        <div class="${riskInfo.class} h-4 rounded-full transition-all duration-500" style="width: ${data.risk_score}%"></div>
+                    </div>
+                    <p class="text-center mt-2 text-slate-400">${data.risk_score}/100</p>
+                </div>
+                <p class="text-sm text-slate-400 mt-3">
+                    Email analizado: ${window.ui.maskEmail(data.email)}
+                </p>
+            </div>
+            
+            <!-- Brechas Encontradas -->
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold text-white mb-4">
+                    Brechas Encontradas (${data.total_breaches})
+                </h3>
+                ${window.ui.generateBreachesHTML(data.breaches)}
+            </div>
+            
+            <!-- Recomendaciones -->
+            ${data.total_breaches > 0 ? `
+                <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-blue-300 mb-3">Recomendaciones de Seguridad</h3>
+                    <ul class="space-y-2">
+                        <li class="flex items-start text-blue-200">
+                            <span class="text-blue-400 mr-2">•</span>
+                            Revisa todas tus cuentas y cambia las contraseñas afectadas
+                        </li>
+                        <li class="flex items-start text-blue-200">
+                            <span class="text-blue-400 mr-2">•</span>
+                            Habilita autenticación de dos factores donde sea posible
+                        </li>
+                        <li class="flex items-start text-blue-200">
+                            <span class="text-blue-400 mr-2">•</span>
+                            No reutilices contraseñas entre diferentes sitios
+                        </li>
+                        <li class="flex items-start text-blue-200">
+                            <span class="text-blue-400 mr-2">•</span>
+                            Mantén tu software actualizado
+                        </li>
+                    </ul>
+                </div>
+            ` : ''}
+        `;
+        
+        // Scroll a resultados
+        resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    // Event listener para el formulario
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkButton = document.getElementById('check-button');
+        if (checkButton) {
+            checkButton.addEventListener('click', checkEmail);
+        }
+        
+        // Permitir enviar con Enter
+        const emailInput = document.getElementById('email-input');
+        if (emailInput) {
+            emailInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    checkEmail();
+                }
+            });
+        }
+    });
 </script>
 
-
+<div id="results" class="mt-8"></div>
 </body>
 </html>
